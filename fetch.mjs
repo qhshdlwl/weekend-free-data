@@ -44,7 +44,7 @@ const oneLine = (s) => clean(s).replace(/\n+/g, " ");
 const httpUrl = (u) => (/^https?:\/\//i.test((u ?? "").trim()) ? u.trim() : null);
 const httpsImg = (u) => (/^https:\/\//i.test((u ?? "").trim()) ? u.trim() : null);
 // 평일 전용 운영(주말 휴관)은 "이번 주말 행사"가 아니다
-const weekendClosed = (t) => /^(평일|월\s*[-~]\s*금)[^토일주말]*$/.test(t) || /(주말|토[·,.]?\s*일)[^,/]*(휴관|휴무|휴장)/.test(t);
+const weekendClosed = (t) => /^(평일|월\s*[-~]\s*금)[^토일주말]*$/.test(t) || /(주말|토[·,.]?\s*일)[^/]{0,12}(휴관|휴무|휴장)/.test(t);
 const idOf = (r) => r.HMPG_ADDR?.match(/cultcode=(\d+)/)?.[1] ?? createHash("sha1").update(r.TITLE + r.STRTDATE + r.PLACE).digest("hex").slice(0, 10);
 
 const all = [];
