@@ -1,0 +1,25 @@
+name: 서울 무료 행사 수집
+on:
+  schedule:
+    - cron: "10 20 * * *"   # 매일 05:10 KST
+  workflow_dispatch:
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node fetch.mjs
+        env:
+          SEOUL_API_KEY: ${{ secrets.SEOUL_API_KEY }}
+      - name: 커밋
+        run: |
+          git config user.name "weekend-free-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add events.json
+          git diff --cached --quiet || git commit -m "data: $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push
