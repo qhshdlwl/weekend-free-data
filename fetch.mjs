@@ -33,7 +33,18 @@ async function page(n) {
 
 const d10 = (s) => (s ?? "").slice(0, 10);
 const num = (s) => { const v = Number(s); return Number.isFinite(v) && v !== 0 ? v : null; };
-const clean = (s) => (s ?? "").replace(/\s+/g, " ").trim();
+// 태그 제거·기본 엔티티 해제, 줄바꿈은 살리고 공백만 접는다
+const ENT = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&nbsp;": " " };
+const clean = (s) =>
+  (s ?? "")
+    .replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "")
+    .replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (m) => ENT[m])
+    .replace(/[ \t\r]+/g, " ").replace(/\s*\n\s*/g, "\n").trim();
+const oneLine = (s) => clean(s).replace(/\n+/g, " ");
+const httpUrl = (u) => (/^https?:\/\//i.test((u ?? "").trim()) ? u.trim() : null);
+const httpsImg = (u) => (/^https:\/\//i.test((u ?? "").trim()) ? u.trim() : null);
+// 평일 전용 운영(주말 휴관)은 "이번 주말 행사"가 아니다
+const weekendClosed = (t) => /^(평일|월\s*[-~]\s*금)[^토일주말]*$/.test(t) || /(주말|토[·,.]?\s*일)[^,/]*(휴관|휴무|휴장)/.test(t);
 const idOf = (r) => r.HMPG_ADDR?.match(/cultcode=(\d+)/)?.[1] ?? createHash("sha1").update(r.TITLE + r.STRTDATE + r.PLACE).digest("hex").slice(0, 10);
 
 const all = [];
@@ -48,11 +59,13 @@ const seen = new Set();
 const events = all
   .filter((r) => r.IS_FREE === "무료" && d10(r.END_DATE) >= today && d10(r.STRTDATE) <= horizon)
   .map((r) => ({
-    id: idOf(r), title: clean(r.TITLE), cat: clean(r.CODENAME), gu: clean(r.GUNAME), place: clean(r.PLACE),
-    start: d10(r.STRTDATE), end: d10(r.END_DATE), time: clean(r.PRO_TIME), target: clean(r.USE_TRGT),
-    lat: num(r.LAT), lng: num(r.LOT), img: r.MAIN_IMG || null, url: r.HMPG_ADDR || r.ORG_LINK || null,
-    org: clean(r.ORG_NAME), desc: clean(r.PROGRAM).slice(0, 600),
+    id: idOf(r), title: oneLine(r.TITLE), cat: oneLine(r.CODENAME), gu: oneLine(r.GUNAME), place: oneLine(r.PLACE),
+    start: d10(r.STRTDATE), end: d10(r.END_DATE), time: oneLine(r.PRO_TIME), target: oneLine(r.USE_TRGT),
+    lat: num(r.LAT), lng: num(r.LOT), img: httpsImg(r.MAIN_IMG), url: httpUrl(r.HMPG_ADDR) ?? httpUrl(r.ORG_LINK),
+    org: oneLine(r.ORG_NAME), desc: clean(r.PROGRAM).slice(0, 600),
   }))
+  .filter((e) => e.gu || (e.lat != null && e.lng != null)) // 자치구도 좌표도 없으면(해외 문화원 등) 제외
+  .filter((e) => !weekendClosed(e.time))
   .filter((e) => (seen.has(e.id) ? false : seen.add(e.id)))
   .sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
 
