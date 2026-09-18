@@ -1,6 +1,6 @@
 // 서울시 문화행사 정보(서울 열린데이터광장 OA-15486) → events.json
 // 무료 + 아직 안 끝난 + 3주 안에 시작하는 행사만 남긴다. 매일 GitHub Actions가 실행한다.
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readFileSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 
 const KEY = process.env.SEOUL_API_KEY;
@@ -58,6 +58,15 @@ const events = all
 
 // 좌표가 위경도 뒤바뀐 행(경도 자리에 37.x)이 있으면 바로잡는다
 for (const e of events) if (e.lat && e.lng && e.lat > 100 && e.lng < 90) [e.lat, e.lng] = [e.lng, e.lat];
+
+// 급격한 감소는 API 형식 변경·장애일 가능성이 크다 → 덮어쓰지 않고 실패시켜 이전 데이터를 지킨다
+if (existsSync("events.json")) {
+  const prev = JSON.parse(readFileSync("events.json", "utf8"));
+  if (prev.count >= 50 && events.length < prev.count * 0.3) {
+    throw new Error(`행사 수 급감 (${prev.count} → ${events.length}). API 응답을 확인할 것`);
+  }
+}
+if (events.length === 0) throw new Error("행사 0건 — API 응답 형식 확인");
 
 writeFileSync("events.json", JSON.stringify({ updatedAt: new Date().toISOString(), source: "서울시 문화행사 정보 (서울 열린데이터광장 OA-15486, 공공누리 1유형)", count: events.length, events }));
 console.log(`전체 ${all.length}건 → 무료·진행중·3주내 ${events.length}건, ${new Date().toISOString()}`);
